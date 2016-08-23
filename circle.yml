@@ -1,0 +1,27 @@
+machine:
+  node:
+    version: 6.3.0
+  services:
+      - docker
+
+dependencies:
+  override:
+    - docker info
+    - docker pull tchughesiv/cf-mini
+    - sudo docker run --privileged -d -v /lib/modules:/lib/modules:ro -p 80:80 -p 443:443 -p 4443:4443 -tdi tchughesiv/cf-mini
+    - sudo apt-get update
+    - sudo apt-get install dnsmasq httping
+    - echo "address=/cf-mini.example/172.17.0.2" | sudo tee -a /etc/dnsmasq.conf > /dev/null
+    - sudo echo resolvconf resolvconf/linkify-resolvconf boolean true | sudo debconf-set-selections -v
+    - sudo dpkg-reconfigure -fnoninteractive resolvconf
+    - sudo /etc/init.d/dnsmasq restart
+    - ping -c 4 api.cf-mini.example
+    - IMAGE=`sudo docker ps | grep tchughesiv/cf-mini | awk '{print $1}'`
+    - START=$(date +%s);
+    - until  $(curl --head --fail http://hello.cf-mini.example) ; do sleep 35; done
+    - END=$(date +%s);
+    - echo $((END-START)) | awk '{print int($1/60)":"int($1%60)}'
+
+test:
+  override:
+    - npm run lint

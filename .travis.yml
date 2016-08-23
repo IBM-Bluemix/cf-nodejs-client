@@ -1,8 +1,52 @@
+sudo: required
+
+env:
+  global:
+    - LOCAL_INSTANCE_1_CF_API_URL=https://api.cf-mini.example
+    - LOCAL_INSTANCE_1_username=admin
+    - LOCAL_INSTANCE_1_password=c1oudc0w
+services:
+  - docker
+
 language: node_js
 node_js:
-  - "0.12"
   - 4.4.7
   - 5.10.1
   - 6.3.0
+
+before_install:
+  - echo 'DOCKER_OPTS="-s devicemapper --storage-opt dm.basesize=30G"' | sudo tee /etc/default/docker > /dev/null
+  - sudo service docker restart
+  - sleep 5
+  - START=$(date +%s);
+  - sudo docker pull tchughesiv/cf-mini
+  - END=$(date +%s);
+  - echo $((END-START)) | awk '{print int($1/60)":"int($1%60)}'
+  - sudo docker run --privileged -d -v /lib/modules:/lib/modules:ro -p 80:80 -p 443:443 -p 4443:4443 -tdi tchughesiv/cf-mini
+  - sudo apt-get update
+  - sudo apt-get install dnsmasq httping
+  - sudo docker ps
+  - IMAGE=`sudo docker ps | grep tchughesiv/cf-mini | awk '{print $1}'`
+  - IP=`sudo docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${IMAGE}`
+  - echo "address=/cf-mini.example/${IP}" | sudo tee -a /etc/dnsmasq.conf > /dev/null
+  - sudo dpkg-reconfigure resolvconf
+  - sudo /etc/init.d/dnsmasq restart
+  - ping -c 4 api.cf-mini.example
+
 install: npm i
-script: npm run lint
+
+script:
+  - npm run lint
+  - IMAGE=`sudo docker ps | grep tchughesiv/cf-mini | awk '{print $1}'`
+  - START=$(date +%s);
+  - until  $(curl --output /dev/null --silent --head --fail http://hello.cf-mini.example) ; do sleep 35;sudo docker logs $IMAGE ; done
+  - END=$(date +%s);
+  - echo $((END-START)) | awk '{print int($1/60)":"int($1%60)}'
+  - START=$(date +%s);
+  - until  $(curl --output /dev/null --silent --head --fail http://hello.cf-mini.example) ; do sleep 35;sudo docker logs $IMAGE ; done
+  - END=$(date +%s);
+  - echo $((END-START)) | awk '{print int($1/60)":"int($1%60)}'
+  - echo "sleeping for 5 minutes to wait for CF to start"
+  - sleep 500
+  - sudo docker logs $IMAGE
+  - npm run test:local
