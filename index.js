@@ -94,6 +94,13 @@ var ServiceBindings = require('./lib/model/cloudcontroller/ServiceBindings');
 exports.ServiceBindings = ServiceBindings;
 
 /**
+ * Support for ServiceKeys
+ * @type {[type]}
+ */
+var ServiceKeys = require('./lib/model/cloudcontroller/ServiceKeys');
+exports.ServiceKeys = ServiceKeys;
+
+/**
  * Support for ServiceInstances
  * @type {[type]}
  */
